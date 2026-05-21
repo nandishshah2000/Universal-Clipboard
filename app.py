@@ -4,7 +4,7 @@ import random
 import socket
 import time
 import threading # NEW IMPORT
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 from flask_socketio import SocketIO, emit, join_room
 from dotenv import load_dotenv

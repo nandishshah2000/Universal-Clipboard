@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Universal Clipboard</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Clipboard">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; text-align: center; }
+        textarea { width: 100%; height: 150px; padding: 10px; margin-top: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background-color: #007aff; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; margin-top: 10px; box-sizing: border-box;}
+        button:hover { background-color: #005bb5; }
+        input[type="text"] { width: 100%; padding: 15px; font-size: 18px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; text-align: center; letter-spacing: 3px; font-weight: bold; }
+        .section { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+        .file-list { text-align: left; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px;}
+        .file-list p { margin: 5px 0; }
+        a { color: #007aff; text-decoration: none; font-weight: bold; }
+        .logout-btn { background-color: #ff3b30; width: 100%; margin-top: 10px; }
+        .logout-btn:hover { background-color: #d70015; }
+        
+        .lobby-card { border: 1px solid #ddd; padding: 20px; border-radius: 12px; margin-bottom: 20px; background-color: #f9f9f9; }
+        
+        /* Drag and Drop CSS */
+        .drop-zone { border: 2px dashed #007aff; border-radius: 12px; padding: 20px; transition: 0.2s; background-color: #ffffff; }
+        .drop-zone.dragover { background-color: #e6f2ff; border-color: #005bb5; }
+    </style>
+</head>
+<body>
+
+    {% if not logged_in %}
+        <h2>Clipboard Lobby</h2>
+        <p>Create a new secure session or join an existing one.</p>
+        
+        {% if error %}
+            <p style="color: red; font-weight: bold;">{{ error }}</p>
+        {% endif %}
+
+        <div class="lobby-card">
+            <h3>Start Fresh</h3>
+            <form method="POST" action="/create_room">
+                <button type="submit" style="width: 100%;">Create New Room</button>
+            </form>
+        </div>
+
+        <div class="lobby-card">
+            <h3>Join a Room</h3>
+            <form method="POST" action="/join_room">
+                <input type="text" name="room_code" placeholder="Enter 4-Digit Code" required autocomplete="off" maxlength="4">
+                <button type="submit" style="width: 100%; margin-top: 15px; background-color: #34c759;">Join Room</button>
+            </form>
+        </div>
+
+    {% else %}
+        <h2>Room: <span style="color: #007aff; letter-spacing: 2px;">{{ room_code }}</span></h2>
+        
+        <textarea id="clipboardText" placeholder="Type or paste something here..."></textarea>
+
+        <div class="section">
+            <h2>File Sharing</h2>
+	    <div id="dropZone" class="drop-zone">
+                <p style="color: #666; margin-bottom: 15px;">Drag & Drop files here or use the button below</p>
+                <input type="file" id="fileInput" multiple style="margin-bottom: 10px;" />
+                <br>
+                <button onclick="uploadFile()" style="width: 100%;">Upload Files</button>
+            </div>
+            <div class="file-list" id="fileListContainer"></div>
+        </div>
+
+        <button onclick="clearAllData()" style="background-color: #ff9500; width: 100%; margin-top: 30px;">Clear Data & Files</button>
+        <button onclick="window.location.href='/leave_room'" class="logout-btn">Leave Room</button>
+
+        <script>
+            const socket = io();
+            const clipboardText = document.getElementById('clipboardText');
+
+            // NEW: Tell the server to link this socket to our specific room as soon as we connect!
+            socket.on('connect', () => {
+                socket.emit('join');
+            });
+
+            /* --- REAL-TIME TEXT LOGIC --- */
+            async function pullInitialClipboard() {
+                const response = await fetch('/api/clipboard');
+                if (response.status === 401) { window.location.reload(); return; }
+                const data = await response.json();
+                clipboardText.value = data.text;
+            }
+
+            clipboardText.addEventListener('input', () => {
+                socket.emit('text_update', { text: clipboardText.value });
+            });
+
+            socket.on('text_received', (data) => {
+                clipboardText.value = data.text;
+            });
+
+            socket.on('file_uploaded', () => {
+                loadFiles();
+            });
+
+/* --- FILE SHARING LOGIC --- */
+            async function processFileUpload(file) {
+                const formData = new FormData();
+                formData.append("file", file);
+                const response = await fetch('/api/upload', { method: 'POST', body: formData });
+                
+                if (response.status === 413) {
+                    alert(`Upload Failed: ${file.name} is too large! Maximum allowed is 100MB.`);
+                    return;
+                }
+                if (response.status === 429) {
+                    alert("Upload Failed: Slow down! You can only upload 30 files per minute.");
+                    return;
+                }
+                if (response.status === 401) { window.location.reload(); return; }
+                
+                loadFiles(); 
+            }
+
+            // UPDATED: Handle multiple files via the button click
+            async function uploadFile() {
+                const fileInput = document.getElementById('fileInput');
+                const files = fileInput.files;
+                
+                if (files.length === 0) { alert("Please select a file first."); return; }
+                
+                // Loop through every selected file and upload it
+                for (let i = 0; i < files.length; i++) {
+                    await processFileUpload(files[i]);
+                }
+                
+                fileInput.value = ''; 
+            }
+
+            async function loadFiles() {
+                const response = await fetch('/api/files');
+                if (response.status === 401) return; 
+                const data = await response.json();
+                const container = document.getElementById('fileListContainer');
+                
+                if (data.files.length === 0) {
+                    container.innerHTML = "<p>No files uploaded yet.</p>";
+                    return;
+                }
+
+                container.innerHTML = '<h3>Available Files:</h3>';
+                data.files.forEach(file => {
+                    container.innerHTML += `<p>📁 <a href="/download/${file}" target="_blank">${file}</a></p>`;
+                });
+            }
+
+            /* --- DRAG AND DROP LOGIC --- */
+            const dropZone = document.getElementById('dropZone');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
+            });
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+            });
+            
+            // UPDATED: Handle multiple files via Drag and Drop
+            dropZone.addEventListener('drop', async (e) => {
+                const files = e.dataTransfer.files; 
+                
+                if (files && files.length > 0) {
+                    // Loop through every dropped file and upload it
+                    for (let i = 0; i < files.length; i++) {
+                        await processFileUpload(files[i]); 
+                    }
+                }
+            }, false);
+            /* --- CLEAR DATA LOGIC --- */
+            async function clearAllData() {
+                if (confirm("Are you sure you want to delete all text and files in this room?")) {
+                    const response = await fetch('/api/clear', { method: 'POST' });
+                    if (response.status === 401) { window.location.reload(); return; }
+                    document.getElementById('clipboardText').value = '';
+                    loadFiles();
+                }
+            }
+
+            window.onload = () => {
+                pullInitialClipboard();
+                loadFiles();
+            };
+        </script>
+    {% endif %}
+</body>
+</html>

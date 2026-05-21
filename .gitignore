@@ -1,0 +1,15 @@
+# Security: Never upload environment variables!
+.env
+
+# Local Uploads: Don't upload test files from your computer
+uploads/
+/uploads
+
+# Python Clutter: Ignore temporary system files
+__pycache__/
+*.pyc
+venv/
+env/
+
+# Mac OS Clutter
+.DS_Store

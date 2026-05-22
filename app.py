@@ -129,6 +129,14 @@ def handle_text_update(data):
         emit('text_received', {'text': data['text']}, to=room, include_self=False)
 
 # --- API ROUTES ---
+# --- PWA ROUTES ---
+@app.route('/manifest.json')
+def serve_manifest():
+    return send_from_directory('static', 'manifest.json')
+
+@app.route('/sw.js')
+def serve_sw():
+    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
 @app.route('/api/clipboard', methods=['GET'])
 def get_initial_clipboard():
     room = session.get('room_code')

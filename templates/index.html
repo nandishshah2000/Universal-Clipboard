@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#007bff">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Universal Clipboard</title>
@@ -194,6 +196,15 @@
                 pullInitialClipboard();
                 loadFiles();
             };
+
+	    /* --- PWA REGISTRATION --- */
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(reg => console.log('Service Worker Registered!'))
+                        .catch(err => console.log('Service Worker Failed:', err));
+                });
+            }
         </script>
     {% endif %}
 </body>

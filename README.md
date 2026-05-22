@@ -16,6 +16,8 @@ A lightweight, real-time web application that allows users to instantly share te
   * Maximum capacity of 10 active rooms to prevent server bloat.
   * IP-based rate limiting (30 requests/minute) to mitigate DoS abuse.
 * **Ephemeral Storage:** Server reboots automatically wipe the file system, ensuring no user data is permanently stored on the cloud host.
+* **Progressive Web App (PWA):** Fully installable on iOS/Android home screens via custom Service Workers and Web Manifests for a native app experience.
+* **Automated Testing:** Integrated Pytest suites to validate core server routing, error handling, and frontend rendering prior to deployment.
 
 ## 🛠️ Tech Stack
 * **Backend:** Python 3, Flask

@@ -2,6 +2,6 @@ Flask
 Flask-SocketIO
 Flask-Limiter
 python-dotenv
-gunicorn
+gunicorn<26.0.0
 eventlet
 pytest

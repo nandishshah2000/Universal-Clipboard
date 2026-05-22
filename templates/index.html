@@ -2,207 +2,245 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Universal Clipboard</title>
     
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#007bff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Clipboard">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     
     <style>
-        /* --- Base Styles --- */
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f4f9;
-            color: #333;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: background-color 0.3s ease, box-shadow 0.3s ease;
-        }
-        .header-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        h1 { margin: 0; font-size: 24px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; text-align: center; }
+        textarea { width: 100%; height: 150px; padding: 10px; margin-top: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background-color: #007aff; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; margin-top: 10px; box-sizing: border-box;}
+        button:hover { background-color: #005bb5; }
+        input[type="text"] { width: 100%; padding: 15px; font-size: 18px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; text-align: center; letter-spacing: 3px; font-weight: bold; }
+        .section { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+        .file-list { text-align: left; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px;}
+        .file-list p { margin: 5px 0; }
+        a { color: #007aff; text-decoration: none; font-weight: bold; }
+        .logout-btn { background-color: #ff3b30; width: 100%; margin-top: 10px; }
+        .logout-btn:hover { background-color: #d70015; }
         
-        button {
-            padding: 10px 15px;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background-color 0.2s;
-        }
-        button:hover { background-color: #0056b3; }
+        .lobby-card { border: 1px solid #ddd; padding: 20px; border-radius: 12px; margin-bottom: 20px; background-color: #f9f9f9; }
         
-        input[type="text"] {
-            padding: 10px;
-            width: calc(100% - 22px);
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        
-        .drop-zone {
-            border: 2px dashed #007bff;
-            padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            border-radius: 8px;
-            margin: 20px 0;
-            background-color: #f9f9f9;
-            transition: background-color 0.2s, border-color 0.2s;
-        }
-        .drop-zone.dragover { background-color: #e9ecef; }
-        
-        .messages {
-            margin-top: 20px;
-            max-height: 350px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            padding: 10px;
-            border-radius: 4px;
-            background: #fafafa;
-        }
-        .message-item {
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-            word-wrap: break-word;
-        }
+        /* Drag and Drop CSS */
+        .drop-zone { border: 2px dashed #007aff; border-radius: 12px; padding: 20px; transition: 0.2s; background-color: #ffffff; }
+        .drop-zone.dragover { background-color: #e6f2ff; border-color: #005bb5; }
 
-        /* --- Dark Mode Variables --- */
-        body.dark-mode {
-            background-color: #121212;
-            color: #e0e0e0;
-        }
-        body.dark-mode .container {
-            background-color: #1e1e1e;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
-        }
-        body.dark-mode input[type="text"] {
-            background-color: #2c2c2c;
-            color: #e0e0e0;
-            border-color: #444;
-        }
-        body.dark-mode .drop-zone {
-            background-color: #2c2c2c;
-            border-color: #007bff;
-            color: #e0e0e0;
-        }
-        body.dark-mode .messages {
-            background-color: #2c2c2c;
-            border-color: #444;
-        }
-        body.dark-mode .message-item {
-            border-bottom: 1px solid #444;
-        }
+        /* --- Dark Mode --- */
+        body.dark-mode { background-color: #121212; color: #e0e0e0; }
+        body.dark-mode .lobby-card, body.dark-mode .file-list { background-color: #1e1e1e; border-color: #333; }
+        body.dark-mode input, body.dark-mode textarea, body.dark-mode .drop-zone { background-color: #2c2c2c; color: #e0e0e0; border-color: #555; }
+        body.dark-mode .section { border-color: #333; }
 
-        /* --- Toast Notification Styles --- */
-        #toast-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 9999;
-        }
-        .toast {
-            background: #007bff;
-            color: #fff;
-            padding: 12px 24px;
-            margin-top: 10px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-            font-weight: bold;
-        }
+        /* --- Toast Notifications --- */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+        .toast { background: #007bff; color: #fff; padding: 12px 24px; margin-top: 10px; border-radius: 8px; opacity: 0; transition: opacity 0.3s; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .toast.show { opacity: 1; }
+
+        /* Neatly positioned Dark Mode Toggle */
+        #dark-mode-toggle {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            margin: 0;
+            padding: 8px 12px;
+            font-size: 14px;
+            background-color: #333;
+            border-radius: 20px;
+        }
+        body.dark-mode #dark-mode-toggle { background-color: #555; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <div class="header-row">
-            <h1>📋 Clipboard</h1>
-            <button id="dark-mode-toggle">🌙 Dark Mode</button>
-        </div>
-
-        <div id="room-section">
-            <input type="text" id="room-input" placeholder="Enter 4-digit Room Code" maxlength="4">
-            <button onclick="joinRoom()" style="width: 100%;">Join Room</button>
-        </div>
-
-        <div id="clipboard-section" style="display:none;">
-            <h3 id="current-room-display" style="text-align: center; color: #007bff;"></h3>
-            
-            <div class="drop-zone" id="drop-zone">
-                📁 Drag & Drop Files Here<br><br><small>Or click to browse</small>
-                <input type="file" id="file-input" style="display:none;">
-            </div>
-
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="text-input" placeholder="Type or paste text..." style="margin-bottom: 0;">
-                <button onclick="sendText()">Send</button>
-            </div>
-
-            <div class="messages" id="messages"></div>
-        </div>
-    </div>
-
+    <button id="dark-mode-toggle">🌙 Dark Mode</button>
     <div id="toast-container"></div>
 
+    {% if not logged_in %}
+        <h2 style="margin-top: 40px;">Clipboard Lobby</h2>
+        <p>Create a new secure session or join an existing one.</p>
+        
+        {% if error %}
+            <p style="color: red; font-weight: bold;">{{ error }}</p>
+        {% endif %}
+
+        <div class="lobby-card">
+            <h3>Start Fresh</h3>
+            <form method="POST" action="/create_room">
+                <button type="submit" style="width: 100%;">Create New Room</button>
+            </form>
+        </div>
+
+        <div class="lobby-card">
+            <h3>Join a Room</h3>
+            <form method="POST" action="/join_room">
+                <input type="text" name="room_code" placeholder="Enter 4-Digit Code" required autocomplete="off" maxlength="4">
+                <button type="submit" style="width: 100%; margin-top: 15px; background-color: #34c759;">Join Room</button>
+            </form>
+        </div>
+
+    {% else %}
+        <h2 style="margin-top: 40px;">Room: <span style="color: #007aff; letter-spacing: 2px;">{{ room_code }}</span></h2>
+        
+        <textarea id="clipboardText" placeholder="Type or paste something here..."></textarea>
+
+        <div class="section">
+            <h2>File Sharing</h2>
+            <div id="dropZone" class="drop-zone">
+                <p style="color: #666; margin-bottom: 15px;">Drag & Drop files here or use the button below</p>
+                <input type="file" id="fileInput" multiple style="margin-bottom: 10px;" />
+                <br>
+                <button onclick="uploadFile()" style="width: 100%;">Upload Files</button>
+            </div>
+            <div class="file-list" id="fileListContainer"></div>
+        </div>
+
+        <button onclick="clearAllData()" style="background-color: #ff9500; width: 100%; margin-top: 30px;">Clear Data & Files</button>
+        <button onclick="window.location.href='/leave_room'" class="logout-btn">Leave Room</button>
+
+        <script>
+            /* --- ROOM SPECIFIC LOGIC --- */
+            const socket = io();
+            const clipboardText = document.getElementById('clipboardText');
+
+            socket.on('connect', () => {
+                socket.emit('join');
+            });
+
+            async function pullInitialClipboard() {
+                const response = await fetch('/api/clipboard');
+                if (response.status === 401) { window.location.reload(); return; }
+                const data = await response.json();
+                clipboardText.value = data.text;
+            }
+
+            clipboardText.addEventListener('input', () => {
+                socket.emit('text_update', { text: clipboardText.value });
+            });
+
+            socket.on('text_received', (data) => {
+                clipboardText.value = data.text;
+            });
+
+            socket.on('file_uploaded', () => {
+                loadFiles();
+            });
+
+            async function processFileUpload(file) {
+                const formData = new FormData();
+                formData.append("file", file);
+                const response = await fetch('/api/upload', { method: 'POST', body: formData });
+                
+                if (response.status === 413) {
+                    showToast(`Upload Failed: ${file.name} is too large! Maximum allowed is 100MB.`);
+                    return;
+                }
+                if (response.status === 429) {
+                    showToast("Upload Failed: Slow down! You can only upload 30 files per minute.");
+                    return;
+                }
+                if (response.status === 401) { window.location.reload(); return; }
+                
+                loadFiles(); 
+            }
+
+            async function uploadFile() {
+                const fileInput = document.getElementById('fileInput');
+                const files = fileInput.files;
+                
+                if (files.length === 0) { showToast("Please select a file first."); return; }
+                
+                for (let i = 0; i < files.length; i++) {
+                    await processFileUpload(files[i]);
+                }
+                fileInput.value = ''; 
+            }
+
+            async function loadFiles() {
+                const response = await fetch('/api/files');
+                if (response.status === 401) return; 
+                const data = await response.json();
+                const container = document.getElementById('fileListContainer');
+                
+                if (data.files.length === 0) {
+                    container.innerHTML = "<p>No files uploaded yet.</p>";
+                    return;
+                }
+
+                container.innerHTML = '<h3>Available Files:</h3>';
+                data.files.forEach(file => {
+                    container.innerHTML += `<p>📁 <a href="/download/${file}" target="_blank">${file}</a></p>`;
+                });
+            }
+
+            /* --- DRAG AND DROP LOGIC --- */
+            const dropZone = document.getElementById('dropZone');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
+            });
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+            });
+            
+            dropZone.addEventListener('drop', async (e) => {
+                const files = e.dataTransfer.files; 
+                if (files && files.length > 0) {
+                    for (let i = 0; i < files.length; i++) {
+                        await processFileUpload(files[i]); 
+                    }
+                }
+            }, false);
+
+            /* --- CLEAR DATA LOGIC --- */
+            async function clearAllData() {
+                if (confirm("Are you sure you want to delete all text and files in this room?")) {
+                    const response = await fetch('/api/clear', { method: 'POST' });
+                    if (response.status === 401) { window.location.reload(); return; }
+                    document.getElementById('clipboardText').value = '';
+                    loadFiles();
+                }
+            }
+
+            window.onload = () => {
+                pullInitialClipboard();
+                loadFiles();
+            };
+        </script>
+    {% endif %}
+
     <script>
-        const socket = io();
-        let currentRoom = '';
-
-        /* --- DOM Elements --- */
-        const roomSection = document.getElementById('room-section');
-        const clipboardSection = document.getElementById('clipboard-section');
-        const currentRoomDisplay = document.getElementById('current-room-display');
-        const messagesDiv = document.getElementById('messages');
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('file-input');
-        const roomInput = document.getElementById('room-input');
-        const textInput = document.getElementById('text-input');
-
-        /* --- Toast Notification Logic --- */
+        /* --- Toast Notification Function --- */
         function showToast(message) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = 'toast';
             toast.innerText = message;
             container.appendChild(toast);
-            
             setTimeout(() => toast.classList.add('show'), 10);
-            
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
 
-        /* --- Dark Mode Logic --- */
+        /* --- Dark Mode Toggle Logic --- */
         const toggleBtn = document.getElementById('dark-mode-toggle');
-        
         if (localStorage.getItem('dark-mode') === 'true') {
             document.body.classList.add('dark-mode');
             toggleBtn.innerText = '☀️ Light Mode';
         }
-        
         toggleBtn.addEventListener('click', () => {
             document.body.classList.toggle('dark-mode');
             const isDark = document.body.classList.contains('dark-mode');
@@ -210,102 +248,7 @@
             toggleBtn.innerText = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
         });
 
-        /* --- Room Connection Logic --- */
-        function joinRoom() {
-            const roomCode = roomInput.value.trim();
-            if (roomCode.length < 1) {
-                showToast("Please enter a valid room code.");
-                return;
-            }
-            currentRoom = roomCode;
-            socket.emit('join', { room: currentRoom });
-            
-            roomSection.style.display = 'none';
-            clipboardSection.style.display = 'block';
-            currentRoomDisplay.innerText = `Connected to Room: ${currentRoom}`;
-            showToast(`Successfully joined room ${currentRoom}`);
-        }
-
-        /* --- Real-Time Text Logic --- */
-        function sendText() {
-            const text = textInput.value.trim();
-            if (!text) return;
-            socket.emit('text_message', { room: currentRoom, data: text });
-            textInput.value = '';
-        }
-
-        socket.on('receive_text', function(data) {
-            const div = document.createElement('div');
-            div.className = 'message-item';
-            div.innerText = data.data;
-            messagesDiv.prepend(div);
-        });
-
-        /* --- File Upload Logic (Fetch API) --- */
-        function uploadFile(file) {
-            if (file.size > 100 * 1024 * 1024) { 
-                showToast("File is too large! Maximum allowed size is 100MB.");
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('room', currentRoom);
-
-            showToast("Uploading file...");
-
-            fetch('/api/clipboard', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    showToast(data.error);
-                } else {
-                    showToast("File uploaded successfully!");
-                }
-            })
-            .catch(error => {
-                console.error("Upload error:", error);
-                showToast("Error uploading file. Please try again.");
-            });
-        }
-
-        socket.on('receive_file', function(data) {
-            const div = document.createElement('div');
-            div.className = 'message-item';
-            div.innerHTML = `📎 <a href="/download/${currentRoom}/${data.filename}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data.filename}</a>`;
-            messagesDiv.prepend(div);
-        });
-
-        /* --- Drag & Drop Listeners --- */
-        dropZone.addEventListener('click', () => fileInput.click());
-        
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                uploadFile(e.target.files[0]);
-            }
-        });
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            if (e.dataTransfer.files.length > 0) {
-                uploadFile(e.dataTransfer.files[0]);
-            }
-        });
-
-        /* --- PWA Service Worker Registration --- */
+        /* --- PWA REGISTRATION --- */
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
